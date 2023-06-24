@@ -2,7 +2,6 @@
 import numpy as np
 import scipy.linalg
 
-
 """
 Table for the 0.95 quantile of the chi-square distribution with N degrees of
 freedom (contains values for N=1, ..., 9). Taken from MATLAB/Octave's chi2inv
@@ -40,14 +39,29 @@ class KalmanFilter(object):
     """
 
     def __init__(self):
-        dt=1.0
+        dt = 1.0
 
         # Create Kalman filter model matrices.
- ##ADD code
-        # Motion and observation uncertainty are chosen relative to the current
-        # state estimate. These weights control the amount of uncertainty in
-        # the model. This is a bit hacky.
-##ADD code
+        ## ADD code
+        
+        self.Q = np.eye(8)
+        self.R = np.eye(4)
+        
+        
+        self.G = np.array([[1, 0, 0, 0, 0, 0, 0, 0],
+                           [0, 1, 0, 0, 0, 0, 0, 0],
+                           [0, 0, 1, 0, 0, 0, 0, 0],
+                           [0, 0, 0, 1, 0, 0, 0, 0]])
+        
+        self.F = np.array([[1, 0, 0, 0, dt, 0, 0, 0],
+                           [0, 1, 0, 0, 0, dt, 0, 0],
+                           [0, 0, 1, 0, 0, 0, dt, 0],
+                           [0, 0, 0, 1, 0, 0, 0, dt],
+                           [0, 0, 0, 0, 1, 0, 0, 0 ],
+                           [0, 0, 0, 0, 0, 1, 0, 0 ],
+                           [0, 0, 0, 0, 0, 0, 1, 0 ],
+                           [0, 0, 0, 0, 0, 0, 0, 1 ]])
+
 
     def initiate(self, measurement):
         """Create track from unassociated measurement.
@@ -66,8 +80,8 @@ class KalmanFilter(object):
             to 0 mean.
 
         """
-##ADD code
-        return mean, covariance
+
+        return np.zeros((8, 1)), np.eye(8)
 
     def predict(self, mean, covariance):
         """Run Kalman filter prediction step.
@@ -88,8 +102,10 @@ class KalmanFilter(object):
             state. Unobserved velocities are initialized to 0 mean.
 
         """
-##ADD code
-        return mean, covariance
+        
+        print(self.F.shape, mean.shape, self.F.shape, covariance.shape, self.F.T.shape, self.Q.shape)
+
+        return self.F @ mean, self.F @ covariance @ self.F.T + self.Q
 
     def project(self, mean, covariance):
         """Project state distribution to measurement space.
@@ -108,8 +124,9 @@ class KalmanFilter(object):
             estimate.
 
         """
-##ADD code
-        return mean, covariance
+        ## ADD code
+
+        return self.G @ mean,  self.G @ covariance @ self.G.T + self.R
 
     def update(self, mean, covariance, measurement):
         """Run Kalman filter correction step.
@@ -131,10 +148,14 @@ class KalmanFilter(object):
             Returns the measurement-corrected state distribution.
 
         """
-##ADD code
-        return new_mean, new_covariance
+        ## ADD code
+        projectedmean, projectedcovariance = self.project (mean, covariance)
+        innovation = measurement - projectedmean
+        kalmangain = covariance @ self.G.T @ np.linalg.inv(projectedcovariance )
 
-    def gating_distance(self, mean, covariance, measurements, only_position=False):
+        return kalmangain @ innovation+mean, covariance - kalmangain@projectedcovariance@kalmangain.T
+
+    def gatingdistance(self, mean, covariance, measurements, only_position=False):
         """Compute gating distance between state distribution and measurements.
 
         A suitable distance threshold can be obtained from `chi2inv95`. If
